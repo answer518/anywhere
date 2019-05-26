@@ -7,6 +7,7 @@ const readdir = promisify(fs.readdir)
 const config = require('../config/defaultConfig')
 const mime = require('../helper/mime')
 const compress = require('../helper/compress')
+const range = require('../helper/range')
 
 const tplPath = path.join(__dirname, '../template/filedir.tpl')
 const tpl = fs.readFileSync(tplPath)
@@ -17,14 +18,21 @@ module.exports = async (req, res, filePath) => {
         const stats = await stat(filePath)
         if (stats.isFile()) {
             const contentType = mime(filePath)
-            res.setHeader('Content-Type', contentType)
-            req.statusCode = 200
-            let rs = fs.createReadStream(filePath)
+            res.setHeader('Content-Type', `${contentType}; charset=utf8;`)
+            let rs;
+            const { code, begin, end } = range(stats.size, req, res)
+            if (code === 200) {
+                req.statusCode = 200
+                rs = fs.createReadStream(filePath)
+            } else {
+                req.statusCode = 216
+                rs = fs.createReadStream(filePath, { start: begin, end: end })
+            }
             if (filePath.match(config.compress)) {
                 rs = compress(rs, req, res)
             }
             rs.pipe(res)
-        } else if(stats.isDirectory()) {
+        } else if (stats.isDirectory()) {
             res.setHeader('Content-Type', mime('html'))
             const files = await readdir(filePath)
             req.statusCode = 200
