@@ -5,9 +5,10 @@ const promisify = require('util').promisify
 const stat = promisify(fs.stat)
 const readdir = promisify(fs.readdir)
 const config = require('../config/defaultConfig')
-const mime = require('../helper/mime')
-const compress = require('../helper/compress')
-const range = require('../helper/range')
+const mime = require('./mime')
+const compress = require('./compress')
+const range = require('./range')
+const isCached = require('./cache')
 
 const tplPath = path.join(__dirname, '../template/filedir.tpl')
 const tpl = fs.readFileSync(tplPath)
@@ -19,13 +20,18 @@ module.exports = async (req, res, filePath) => {
         if (stats.isFile()) {
             const contentType = mime(filePath)
             res.setHeader('Content-Type', `${contentType}; charset=utf8;`)
+            if(isCached(stats, req, res)) {
+                res.statusCode = 304
+                res.end()
+                return
+            }
             let rs;
             const { code, begin, end } = range(stats.size, req, res)
             if (code === 200) {
-                req.statusCode = 200
+                res.statusCode = 200
                 rs = fs.createReadStream(filePath)
             } else {
-                req.statusCode = 216
+                res.statusCode = 216
                 rs = fs.createReadStream(filePath, { start: begin, end: end })
             }
             if (filePath.match(config.compress)) {
