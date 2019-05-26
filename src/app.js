@@ -4,12 +4,22 @@ const chalk = require('chalk')
 const config = require('./config/defaultConfig')
 const route = require('./helper/router')
 
-const server = http.createServer((req, res) => {
-    const filePath = path.join(config.root, req.url)
-    route(req, res, filePath)
-})
+class Server {
+    constructor(conf) {
+        this.config = Object.assign(config, conf)
+    }
 
-server.listen(config.port, () => {
-    const addr = `http://${config.hostname}:${config.port}`
-    console.info(`Server stated at: ${chalk.green(addr)}`)
-})
+    start() {
+        const server = http.createServer((req, res) => {
+            const filePath = path.join(this.config.root, req.url)
+            route(req, res, filePath, this.config)
+        })
+
+        server.listen(this.config.port, () => {
+            const addr = `http://${this.config.hostname}:${this.config.port}`
+            console.info(`Server stated at: ${chalk.green(addr)}`)
+        })
+    }
+}
+
+module.exports = Server
